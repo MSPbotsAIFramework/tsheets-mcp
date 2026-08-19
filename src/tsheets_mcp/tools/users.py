@@ -1,81 +1,122 @@
-import json
 from collections.abc import Callable
+from typing import Annotated
 
 from mcp.server.fastmcp import FastMCP
+from mcp.types import ToolAnnotations
+from pydantic import Field
 
+from .._json import dump_json_capped
 from ..api_client import TSheetsClient, TSheetsError
-from ._common import NO_TOKEN
+from ._common import NO_TOKEN, clamp_limit
+
+_BODY_DESC = (
+    "JSON request payload. TSheets bulk endpoints expect "
+    '{"data": [ {...}, ... ]} — see the QuickBooks Time API reference for '
+    "exact object fields."
+)
 
 
 def register(mcp: FastMCP, client_factory: Callable[[], TSheetsClient | None]) -> None:
 
-    @mcp.tool()
-    async def tsheets_users_create_users(body: dict) -> str:
-        """Create Users.
-
-        API: POST /users
-
-        Args:
-            body: Required. JSON request payload — TSheets bulk endpoints expect {"data": [ {...}, ... ]}. See the QuickBooks Time API reference for exact object fields.
-        """
+    @mcp.tool(annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=False))
+    async def tsheets_users_create_users(
+        body: Annotated[dict, Field(description=_BODY_DESC)],
+    ) -> str:
+        """Create one or more users (employees/staff)."""
         client = client_factory()
         if client is None:
             return NO_TOKEN
-        params = {}
         try:
-            result = await client.post("/users", params=params, json_body=body)
-            return json.dumps(result, indent=2, default=str)
+            result = await client.post("/users", params={}, json_body=body)
+            return dump_json_capped(result)
         except TSheetsError as e:
-            return f"Error: {e}"
+            return e.to_envelope()
 
-    @mcp.tool()
-    async def tsheets_users_retrieve_users(ids: str | None = None, not_ids: str | None = None, employee_numbers: str | None = None, usernames: str | None = None, group_ids: str | None = None, not_group_ids: str | None = None, payroll_ids: str | None = None, active: str | None = None, first_name: str | None = None, last_name: str | None = None, modified_before: str | None = None, modified_since: str | None = None, supplemental_data: str | None = None, limit: str | None = None, page: str | None = None) -> str:
-        """Retrieve Users.
-
-        API: GET /users
-
-        Args:
-            ids: Optional. Comma separated list of one or more user ids you'd like to filter on.
-            not_ids: Optional. Comma separated list of one or more user ids you'd like to filter on. Specifically, the user ids you'd like to exclude.
-            employee_numbers: Optional. Comma separated list of one or more employee numbers you'd like to filter on.
-            usernames: Optional. Comma separated list of one or more usernames you'd like to filter on.
-            group_ids: Optional. Comma separated list of one or more group ids you'd like to filter on.
-            not_group_ids: Optional. Comma separated list of one or more group ids you'd like to filter on. Specifically, the group ids you'd like to exclude.
-            payroll_ids: Optional. A comma-separated string of payroll ids. Only users with these payroll ids will be returned.
-            active: Optional. 'yes', 'no', or 'both'. Default is 'yes'.
-            first_name: Optional. * will be interpreted as a wild card. Starts matching from the beginning of the string.
-            last_name: Optional. * will be interpreted as a wild card. Starts matching from the beginning of the string.
-            modified_before: Optional. Only users modified before this date/time will be returned, in ISO 8601 format (YYYY-MM-DDThh:mm:ss±hh:mm).
-            modified_since: Optional. Only users modified since this date/time will be returned, in ISO 8601 format (YYYY-MM-DDThh:mm:ss±hh:mm).
-            supplemental_data: Optional. 'yes' or 'no'. Default is 'yes'. Indicates whether supplemental data should be returned.
-            limit: Optional. Represents how many results you'd like to retrieve per request. Default is 200. Max is 200.If present, this value must be: an integer, greater than zero, and not greater than 200.Setting limit less than 1 or greater than 200 will result in an error.
-            page: Optional. Represents the page of results you'd like to retrieve. Default is 1.
-        """
+    @mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
+    async def tsheets_users_retrieve_users(
+        ids: Annotated[
+            str | None, Field(description="Comma-separated user ids to filter on.")
+        ] = None,
+        not_ids: Annotated[
+            str | None, Field(description="Comma-separated user ids to exclude.")
+        ] = None,
+        employee_numbers: Annotated[
+            str | None, Field(description="Comma-separated employee numbers to filter on.")
+        ] = None,
+        usernames: Annotated[
+            str | None, Field(description="Comma-separated usernames to filter on.")
+        ] = None,
+        group_ids: Annotated[
+            str | None, Field(description="Comma-separated group ids to filter on.")
+        ] = None,
+        not_group_ids: Annotated[
+            str | None, Field(description="Comma-separated group ids to exclude.")
+        ] = None,
+        payroll_ids: Annotated[
+            str | None, Field(description="Comma-separated payroll ids to filter on.")
+        ] = None,
+        active: Annotated[
+            str | None, Field(description="'yes', 'no', or 'both'. Default 'yes'.")
+        ] = None,
+        first_name: Annotated[
+            str | None, Field(description="First name filter; trailing '*' is a wildcard.")
+        ] = None,
+        last_name: Annotated[
+            str | None, Field(description="Last name filter; trailing '*' is a wildcard.")
+        ] = None,
+        modified_before: Annotated[
+            str | None,
+            Field(description="Only users modified before this ISO 8601 date/time."),
+        ] = None,
+        modified_since: Annotated[
+            str | None,
+            Field(description="Only users modified since this ISO 8601 date/time."),
+        ] = None,
+        supplemental_data: Annotated[
+            str | None, Field(description="'yes' or 'no'. Default 'yes'.")
+        ] = None,
+        limit: Annotated[
+            int | None, Field(description="Results per page. Default 50, max 200.")
+        ] = None,
+        page: Annotated[int | None, Field(description="Page number. Default 1.")] = None,
+    ) -> str:
+        """List users (employees/staff) in the account, optionally filtered."""
         client = client_factory()
         if client is None:
             return NO_TOKEN
-        params = {"ids": ids, "not_ids": not_ids, "employee_numbers": employee_numbers, "usernames": usernames, "group_ids": group_ids, "not_group_ids": not_group_ids, "payroll_ids": payroll_ids, "active": active, "first_name": first_name, "last_name": last_name, "modified_before": modified_before, "modified_since": modified_since, "supplemental_data": supplemental_data, "limit": limit, "page": page}
+        params = {
+            "ids": ids,
+            "not_ids": not_ids,
+            "employee_numbers": employee_numbers,
+            "usernames": usernames,
+            "group_ids": group_ids,
+            "not_group_ids": not_group_ids,
+            "payroll_ids": payroll_ids,
+            "active": active,
+            "first_name": first_name,
+            "last_name": last_name,
+            "modified_before": modified_before,
+            "modified_since": modified_since,
+            "supplemental_data": supplemental_data,
+            "limit": clamp_limit(limit),
+            "page": page,
+        }
         try:
             result = await client.get("/users", params=params)
-            return json.dumps(result, indent=2, default=str)
+            return dump_json_capped(result)
         except TSheetsError as e:
-            return f"Error: {e}"
+            return e.to_envelope()
 
-    @mcp.tool()
-    async def tsheets_users_update_users(body: dict) -> str:
-        """Update Users.
-
-        API: PUT /users
-
-        Args:
-            body: Required. JSON request payload — TSheets bulk endpoints expect {"data": [ {...}, ... ]}. See the QuickBooks Time API reference for exact object fields.
-        """
+    @mcp.tool(annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=False, idempotentHint=True))
+    async def tsheets_users_update_users(
+        body: Annotated[dict, Field(description=_BODY_DESC)],
+    ) -> str:
+        """Update one or more existing users."""
         client = client_factory()
         if client is None:
             return NO_TOKEN
-        params = {}
         try:
-            result = await client.put("/users", params=params, json_body=body)
-            return json.dumps(result, indent=2, default=str)
+            result = await client.put("/users", params={}, json_body=body)
+            return dump_json_capped(result)
         except TSheetsError as e:
-            return f"Error: {e}"
+            return e.to_envelope()

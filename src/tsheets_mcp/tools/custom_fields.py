@@ -1,75 +1,100 @@
-import json
 from collections.abc import Callable
+from typing import Annotated
 
 from mcp.server.fastmcp import FastMCP
+from mcp.types import ToolAnnotations
+from pydantic import Field
 
+from .._json import dump_json_capped
 from ..api_client import TSheetsClient, TSheetsError
-from ._common import NO_TOKEN
+from ._common import NO_TOKEN, clamp_limit
+
+_BODY_DESC = (
+    "JSON request payload. TSheets bulk endpoints expect "
+    '{"data": [ {...}, ... ]} — see the QuickBooks Time API reference for '
+    "exact object fields."
+)
 
 
 def register(mcp: FastMCP, client_factory: Callable[[], TSheetsClient | None]) -> None:
 
-    @mcp.tool()
-    async def tsheets_custom_fields_create_custom_fields(body: dict) -> str:
-        """Create Custom Fields.
-
-        API: POST /customfields
-
-        Args:
-            body: Required. JSON request payload — TSheets bulk endpoints expect {"data": [ {...}, ... ]}. See the QuickBooks Time API reference for exact object fields.
-        """
+    @mcp.tool(annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=False))
+    async def tsheets_custom_fields_create_custom_fields(
+        body: Annotated[dict, Field(description=_BODY_DESC)],
+    ) -> str:
+        """Create one or more custom fields (org-defined data attached to timesheets/users/jobcodes)."""
         client = client_factory()
         if client is None:
             return NO_TOKEN
-        params = {}
         try:
-            result = await client.post("/customfields", params=params, json_body=body)
-            return json.dumps(result, indent=2, default=str)
+            result = await client.post("/customfields", params={}, json_body=body)
+            return dump_json_capped(result)
         except TSheetsError as e:
-            return f"Error: {e}"
+            return e.to_envelope()
 
-    @mcp.tool()
-    async def tsheets_custom_fields_retrieve_custom_fields(ids: str | None = None, active: str | None = None, applies_to: str | None = None, value_type: str | None = None, modified_before: str | None = None, modified_since: str | None = None, supplemental_data: str | None = None, limit: str | None = None, page: str | None = None) -> str:
-        """Retrieve Custom Fields.
-
-        API: GET /customfields
-
-        Args:
-            ids: Optional. Comma separated list of one or more customfield ids you'd like to filter on. Only customfields with an id set to one of these values will be returned. If omitted, all customfields matching other specified filters are returned.
-            active: Optional. 'yes', 'no', or 'both'. Default is 'yes'.
-            applies_to: Optional. 'timesheet', 'user', 'jobcode', or 'all'. Default is 'timesheet'.
-            value_type: Optional. 'managed-list', 'free-form', or 'both'. Default is 'both'.
-            modified_before: Optional. Only customfields modified before this date/time will be returned, in ISO 8601 format (YYYY-MM-DDThh:mm:ss±hh:mm).
-            modified_since: Optional. Only customfields modified since this date/time will be returned, in ISO 8601 format (YYYY-MM-DDThh:mm:ss±hh:mm).
-            supplemental_data: Optional. 'yes' or 'no'. Default is 'yes'. Indicates whether supplemental data should be returned.
-            limit: Optional. Represents how many results you'd like to retrieve per request. Default is 200. Max is 200.If present, this value must be: an integer, greater than zero, and not greater than 200.Setting limit less than 1 or greater than 200 will result in an error.
-            page: Optional. Represents the page of results you'd like to retrieve. Default is 1.
-        """
+    @mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
+    async def tsheets_custom_fields_retrieve_custom_fields(
+        ids: Annotated[
+            str | None, Field(description="Comma-separated custom field ids to filter on.")
+        ] = None,
+        active: Annotated[
+            str | None, Field(description="'yes', 'no', or 'both'. Default 'yes'.")
+        ] = None,
+        applies_to: Annotated[
+            str | None,
+            Field(description="'timesheet', 'user', 'jobcode', or 'all'. Default 'timesheet'."),
+        ] = None,
+        value_type: Annotated[
+            str | None,
+            Field(description="'managed-list', 'free-form', or 'both'. Default 'both'."),
+        ] = None,
+        modified_before: Annotated[
+            str | None,
+            Field(description="Only fields modified before this ISO 8601 date/time."),
+        ] = None,
+        modified_since: Annotated[
+            str | None,
+            Field(description="Only fields modified since this ISO 8601 date/time."),
+        ] = None,
+        supplemental_data: Annotated[
+            str | None, Field(description="'yes' or 'no'. Default 'yes'.")
+        ] = None,
+        limit: Annotated[
+            int | None, Field(description="Results per page. Default 50, max 200.")
+        ] = None,
+        page: Annotated[int | None, Field(description="Page number. Default 1.")] = None,
+    ) -> str:
+        """List custom fields defined for this account, optionally filtered."""
         client = client_factory()
         if client is None:
             return NO_TOKEN
-        params = {"ids": ids, "active": active, "applies_to": applies_to, "value_type": value_type, "modified_before": modified_before, "modified_since": modified_since, "supplemental_data": supplemental_data, "limit": limit, "page": page}
+        params = {
+            "ids": ids,
+            "active": active,
+            "applies_to": applies_to,
+            "value_type": value_type,
+            "modified_before": modified_before,
+            "modified_since": modified_since,
+            "supplemental_data": supplemental_data,
+            "limit": clamp_limit(limit),
+            "page": page,
+        }
         try:
             result = await client.get("/customfields", params=params)
-            return json.dumps(result, indent=2, default=str)
+            return dump_json_capped(result)
         except TSheetsError as e:
-            return f"Error: {e}"
+            return e.to_envelope()
 
-    @mcp.tool()
-    async def tsheets_custom_fields_update_custom_fields(body: dict) -> str:
-        """Update Custom Fields.
-
-        API: PUT /customfields
-
-        Args:
-            body: Required. JSON request payload — TSheets bulk endpoints expect {"data": [ {...}, ... ]}. See the QuickBooks Time API reference for exact object fields.
-        """
+    @mcp.tool(annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=False, idempotentHint=True))
+    async def tsheets_custom_fields_update_custom_fields(
+        body: Annotated[dict, Field(description=_BODY_DESC)],
+    ) -> str:
+        """Update one or more existing custom fields."""
         client = client_factory()
         if client is None:
             return NO_TOKEN
-        params = {}
         try:
-            result = await client.put("/customfields", params=params, json_body=body)
-            return json.dumps(result, indent=2, default=str)
+            result = await client.put("/customfields", params={}, json_body=body)
+            return dump_json_capped(result)
         except TSheetsError as e:
-            return f"Error: {e}"
+            return e.to_envelope()

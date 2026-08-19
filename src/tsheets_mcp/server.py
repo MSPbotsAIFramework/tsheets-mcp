@@ -17,6 +17,27 @@ _gateway_creds_var: contextvars.ContextVar[str | None] = contextvars.ContextVar(
     "tsheets_gateway_creds", default=None
 )
 
+_INSTRUCTIONS = (
+    "TSheets (QuickBooks Time) is Intuit's time-tracking, scheduling, and PTO "
+    "platform: it tracks employee hours against jobs/customers for payroll "
+    "and billing. Core concepts and how the 6 tool groups relate: users "
+    "(employees/staff) log time as timesheets (clock-in/out or manual "
+    "entries) against jobcodes (the jobs/customers/tasks time is billed to, "
+    "arranged in a parent/child tree). custom_fields let an org attach extra "
+    "structured data (e.g. a customer PO or ticket number) to timesheets, "
+    "users, or jobcodes; custom_field_item_user_filters restrict which of "
+    "those field values a given user/group may pick from. "
+    "effective_settings resolves the actual account/timesheet/approval "
+    "configuration that applies to a specific user, since settings can be "
+    "overridden at multiple levels. "
+    "Typical flow: retrieve users/jobcodes to identify who/what time is "
+    "tracked against, then retrieve or create timesheets filtered by "
+    "user_ids/jobcode_ids/date range for reporting or entry. Check "
+    "custom_fields and custom_field_item_user_filters when a workflow needs "
+    "custom tracking fields, and effective_settings to confirm what an org "
+    "or user is configured to allow before attempting an operation."
+)
+
 
 def get_client_from_context(settings: Settings) -> TSheetsClient | None:
     """Resolve the active TSheetsClient for the current request context."""
@@ -77,6 +98,7 @@ def create_mcp_server(settings: Settings) -> FastMCP:
     # correctly behind a reverse proxy or docker network.
     mcp = FastMCP(
         name="tsheets-mcp",
+        instructions=_INSTRUCTIONS,
         transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=False),
     )
 

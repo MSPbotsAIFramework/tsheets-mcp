@@ -47,7 +47,13 @@ Missing the header returns `401`:
 ## MCP Endpoint
 
 - `POST /mcp` — MCP protocol (streamable HTTP transport)
-- `GET /health` — health check, returns `{"status": "ok", "service": "tsheets-mcp", "transport": "http"}`
+- `GET /health` — health check, returns exactly `{"status": "ok"}`. This is a pure local probe — it does not call the TSheets API, so TSheets outages never mark the container unhealthy.
+
+## Errors and pagination
+
+- Tool errors are returned as an in-band JSON envelope (not a raised exception or protocol-level error): `{"error": {"code": "...", "message": "...", "retryable": true|false}}`. `code` is one of `not_configured` / `unauthorized` / `not_found` / `invalid_argument` / `rate_limited` / `upstream_error`, mapped from the upstream HTTP status.
+- Outbound calls to the TSheets API use a 5s connect / 30s read timeout, retry up to 3 times with capped exponential backoff on `429`/`5xx` (honoring `Retry-After`), and reuse a single connection pool for the process lifetime.
+- Every `retrieve_*` tool's `limit` parameter defaults to **50** and is clamped to TSheets' own documented per-page maximum of **200** if a caller asks for more (TSheets' own API also defaults to/maxes out at 200, so the two ceilings agree here).
 
 ## Tool List
 
@@ -90,7 +96,7 @@ curl -s -X POST http://localhost:8080/mcp \
     "id": 1,
     "method": "tools/call",
     "params": {
-      "name": "tsheets_current_user_retrieve_the_current_user",
+      "name": "tsheets_jobcodes_retrieve_jobcodes",
       "arguments": {}
     }
   }'
