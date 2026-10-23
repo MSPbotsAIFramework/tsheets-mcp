@@ -92,11 +92,11 @@ Source data for the kept tools was originally extracted by cloning the TSheets d
 
 TSheets uses a static **access token** obtained via the vendor's own OAuth/API-app flow (see MSPbots' internal KB article linked from its own integration config). MSPbots' own integration convention sends this token as `Authorization: Bearer <accessToken>`, matching TSheets' own documented format, and this server forwards it exactly that way.
 
-### HEADER 授权参数说明
+### HEADER Authentication Parameters
 
-| Header | 类型 | 是否必填 | 默认值 | 枚举值 | 字段描述 | Example |
+| Header | Type | Required | Default | Allowed values | Description | Example |
 |---|---|---|---|---|---|---|
-| `X-TSheets-Access-Token` | string | 是 | 无 | 无 | TSheets 访问令牌，原样转发为上游 `Authorization: Bearer <accessToken>` 请求头 | `X-TSheets-Access-Token: S.17__xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx` |
+| `X-TSheets-Access-Token` | string | Yes | None | None | TSheets access token, forwarded as-is as the upstream `Authorization: Bearer <accessToken>` request header | `X-TSheets-Access-Token: S.17__xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx` |
 
 Missing the header returns `401`:
 ```json
@@ -110,11 +110,11 @@ Missing the header returns `401`:
 
 ## Environment Variables
 
-| Variable | 类型 | 是否必填 | 默认值 | 说明 |
+| Variable | Type | Required | Default | Description |
 |---|---|---|---|---|
-| `MCP_HTTP_PORT` | int | 否 | `8080` | HTTP 监听端口 |
-| `MCP_HTTP_HOST` | string | 否 | `0.0.0.0` | HTTP 监听地址 |
-| `TSHEETS_BASE_URL` | string | 否 | `https://rest.tsheets.com/api/v1` | TSheets API 基础 URL |
+| `MCP_HTTP_PORT` | int | No | `8080` | HTTP listen port |
+| `MCP_HTTP_HOST` | string | No | `0.0.0.0` | HTTP listen address |
+| `TSHEETS_BASE_URL` | string | No | `https://rest.tsheets.com/api/v1` | TSheets API base URL |
 
 ## MCP Endpoint
 
@@ -131,25 +131,25 @@ Missing the header returns `401`:
 
 Tool names are `tsheets_<category>_<operation>`, derived from each operation's `## Heading` in the source docs (e.g. "Retrieve Timesheets" in the `timesheets` category → `tsheets_timesheets_retrieve_timesheets`). Several `retrieve` filter parameters are documented as "required (unless X, Y, or Z is set)" — a one-of-N requirement that can't be cleanly expressed as a single hard-required Python parameter, so those are modeled as optional and the OR-constraint is spelled out in the tool's own docstring instead. `body` parameters for create/update endpoints are accepted as a generic `dict` — TSheets' own convention wraps these in `{"data": [ {...}, ... ]}` (bulk create/update of up to 50 objects per call), documented per-tool.
 
-| Category | Tool | 功能 | 方法+路径 | 参数 |
+| Category | Tool | Description | Method + Path | Parameters |
 |---|---|---|---|---|
-| custom_field_item_user_filters | `tsheets_custom_field_item_user_filters_retrieve_user_filters` | Retrieve User Filters. | GET /customfielditem_user_filters | user_id(可选), group_id(可选), include_user_group(可选), modified_before(可选), modified_since(可选), limit(可选), page(可选) |
-| custom_fields | `tsheets_custom_fields_create_custom_fields` | Create Custom Fields. | POST /customfields | body(必填) |
-| custom_fields | `tsheets_custom_fields_retrieve_custom_fields` | Retrieve Custom Fields. | GET /customfields | ids(可选), active(可选), applies_to(可选), value_type(可选), modified_before(可选), modified_since(可选), supplemental_data(可选), limit(可选), page(可选) |
-| custom_fields | `tsheets_custom_fields_update_custom_fields` | Update Custom Fields. | PUT /customfields | body(必填) |
-| effective_settings | `tsheets_effective_settings_retrieve_effective_settings` | Retrieve Effective Settings. | GET /effective_settings | user_id(可选), modified_before(可选), modified_since(可选) |
-| jobcodes | `tsheets_jobcodes_create_jobcodes` | Create Jobcodes. | POST /jobcodes | body(必填) |
-| jobcodes | `tsheets_jobcodes_retrieve_jobcodes` | Retrieve Jobcodes. | GET /jobcodes | ids(可选), parent_ids(可选), name(可选), type(可选), active(可选), customfields(可选), modified_before(可选), modified_since(可选), supplemental_data(可选), limit(可选), page(可选) |
-| jobcodes | `tsheets_jobcodes_update_jobcodes` | Update Jobcodes. | PUT /jobcodes | body(必填) |
-| timesheets | `tsheets_timesheets_create_timesheets` | Create Timesheets. | POST /timesheets | body(必填) |
-| timesheets | `tsheets_timesheets_delete_timesheets` | Delete Timesheets. | DELETE /timesheets | ids(可选) |
-| timesheets | `tsheets_timesheets_retrieve_timesheets` | Retrieve Timesheets. | GET /timesheets | ids(可选), start_date(可选), end_date(可选), jobcode_ids(可选), payroll_ids(可选), user_ids(可选), group_ids(可选), on_the_clock(可选), jobcode_type(可选), modified_before(可选), modified_since(可选), supplemental_data(可选), limit(可选), page(可选) |
-| timesheets | `tsheets_timesheets_update_timesheets` | Update Timesheets. | PUT /timesheets | body(必填) |
-| users | `tsheets_users_create_users` | Create Users. | POST /users | body(必填) |
-| users | `tsheets_users_retrieve_users` | Retrieve Users. | GET /users | ids(可选), not_ids(可选), employee_numbers(可选), usernames(可选), group_ids(可选), not_group_ids(可选), payroll_ids(可选), active(可选), first_name(可选), last_name(可选), modified_before(可选), modified_since(可选), supplemental_data(可选), limit(可选), page(可选) |
-| users | `tsheets_users_update_users` | Update Users. | PUT /users | body(必填) |
+| custom_field_item_user_filters | `tsheets_custom_field_item_user_filters_retrieve_user_filters` | Retrieve User Filters. | GET /customfielditem_user_filters | user_id(optional), group_id(optional), include_user_group(optional), modified_before(optional), modified_since(optional), limit(optional), page(optional) |
+| custom_fields | `tsheets_custom_fields_create_custom_fields` | Create Custom Fields. | POST /customfields | body(required) |
+| custom_fields | `tsheets_custom_fields_retrieve_custom_fields` | Retrieve Custom Fields. | GET /customfields | ids(optional), active(optional), applies_to(optional), value_type(optional), modified_before(optional), modified_since(optional), supplemental_data(optional), limit(optional), page(optional) |
+| custom_fields | `tsheets_custom_fields_update_custom_fields` | Update Custom Fields. | PUT /customfields | body(required) |
+| effective_settings | `tsheets_effective_settings_retrieve_effective_settings` | Retrieve Effective Settings. | GET /effective_settings | user_id(optional), modified_before(optional), modified_since(optional) |
+| jobcodes | `tsheets_jobcodes_create_jobcodes` | Create Jobcodes. | POST /jobcodes | body(required) |
+| jobcodes | `tsheets_jobcodes_retrieve_jobcodes` | Retrieve Jobcodes. | GET /jobcodes | ids(optional), parent_ids(optional), name(optional), type(optional), active(optional), customfields(optional), modified_before(optional), modified_since(optional), supplemental_data(optional), limit(optional), page(optional) |
+| jobcodes | `tsheets_jobcodes_update_jobcodes` | Update Jobcodes. | PUT /jobcodes | body(required) |
+| timesheets | `tsheets_timesheets_create_timesheets` | Create Timesheets. | POST /timesheets | body(required) |
+| timesheets | `tsheets_timesheets_delete_timesheets` | Delete Timesheets. | DELETE /timesheets | ids(optional) |
+| timesheets | `tsheets_timesheets_retrieve_timesheets` | Retrieve Timesheets. | GET /timesheets | ids(optional), start_date(optional), end_date(optional), jobcode_ids(optional), payroll_ids(optional), user_ids(optional), group_ids(optional), on_the_clock(optional), jobcode_type(optional), modified_before(optional), modified_since(optional), supplemental_data(optional), limit(optional), page(optional) |
+| timesheets | `tsheets_timesheets_update_timesheets` | Update Timesheets. | PUT /timesheets | body(required) |
+| users | `tsheets_users_create_users` | Create Users. | POST /users | body(required) |
+| users | `tsheets_users_retrieve_users` | Retrieve Users. | GET /users | ids(optional), not_ids(optional), employee_numbers(optional), usernames(optional), group_ids(optional), not_group_ids(optional), payroll_ids(optional), active(optional), first_name(optional), last_name(optional), modified_before(optional), modified_since(optional), supplemental_data(optional), limit(optional), page(optional) |
+| users | `tsheets_users_update_users` | Update Users. | PUT /users | body(required) |
 
-## 测试示例
+## Test Example
 
 ```bash
 # Health check
